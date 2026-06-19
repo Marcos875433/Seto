@@ -1,4 +1,5 @@
 const std = @import("std");
+const xkb = @import("xkbcommon");
 const c = @import("ffi");
 
 const Lua = @import("ziglua").Lua;
@@ -64,18 +65,27 @@ pub fn init(lua: *Lua, alloc: std.mem.Allocator) !Self {
     if (!lua.isNil(3)) {
         lua.pushNil();
         while (lua.next(3)) {
-            const key: u8 = if (lua.isNumber(4))
+            const key: u32 = if (lua.isNumber(4))
                 @intFromFloat(try lua.toNumber(4))
-            else
-                (try lua.toString(4))[0];
+            else blk: {
+                const key_str = try lua.toString(4);
+
+                const keysym = xkb.Keysym.fromName(key_str, .no_flags); 
+
+                if (@intFromEnum(keysym) == 0) {
+                    std.log.err("Unknown key binding in config: {s}\n", .{key_str});
+                    std.process.exit(1);
+                }
+
+                break :blk @intFromEnum(keysym);
+            };
 
             const value: std.meta.Tuple(&.{ [*:0]const u8, ?[2]f32 }) = x: {
                 if (lua.isString(5)) {
                     break :x .{ try lua.toString(5), null };
                 } else {
                     defer lua.pop(3);
-                    const inner_key: [2]u8 = .{ key, 0 };
-                    _ = lua.pushString(inner_key[0..1 :0]);
+                    lua.pushValue(4);
                     _ = lua.getTable(5);
                     _ = lua.pushNil();
                     if (lua.next(5)) {

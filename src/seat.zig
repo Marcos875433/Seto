@@ -107,13 +107,13 @@ pub fn keyboardListener(_: *wl.Keyboard, event: wl.Keyboard.Event, seto: *Seto) 
 
             switch (ev.state) {
                 .released => {
-                    if (xkb_state.keyGetUtf32(keycode) != seto.seat.repeat.key) return;
+                    if (@intFromEnum(xkb_state.keyGetOneSym(keycode)) != seto.seat.repeat.key) return;
 
                     seto.seat.repeat.key = null;
                     seto.seat.repeat.timer.stop() catch return;
                 },
                 .pressed => {
-                    const keysym = xkb_state.keyGetUtf32(keycode);
+                    const keysym = @intFromEnum(xkb_state.keyGetOneSym(keycode));
 
                     if (xkb_state.getKeymap().keyRepeats(keycode) == 1) {
                         seto.seat.repeat.timer.start(
@@ -164,15 +164,15 @@ pub fn handleKey(self: *Seto) void {
     const key = self.seat.repeat.key orelse return;
     var trees = self.trees orelse return;
 
-    const keysym_backspace = xkb.Keysym.toUTF32(@enumFromInt(xkb.Keysym.BackSpace));
-    const keysym_escape = xkb.Keysym.toUTF32(@enumFromInt(xkb.Keysym.Escape));
+    const keysym_backspace = xkb.Keysym.BackSpace;
+    const keysym_escape = xkb.Keysym.Escape;
     const keysym_interrupt = 3;
 
     if (key == keysym_backspace) {
         _ = self.state.buffer.pop();
     } else if (key == keysym_interrupt or key == keysym_escape) {
         self.state.exit = true;
-    } else if (self.config.keys.bindings.get(@intCast(key))) |function| {
+    } else if (self.config.keys.bindings.get(key)) |function| {
         switch (function) {
             .move => |value| {
                 var new_value = value;
@@ -200,7 +200,10 @@ pub fn handleKey(self: *Seto) void {
             .border_mode => self.state.border_mode = !self.state.border_mode,
         }
     } else {
-        self.state.buffer.append(key) catch @panic("OOM");
-        _ = self.printToStdout() catch self.state.buffer.pop();
+        const utf32_char = xkb.Keysym.toUTF32(@enumFromInt(key));
+        if (utf32_char != 0) {
+            self.state.buffer.append(utf32_char) catch @panic("OOM");
+            _ = self.printToStdout() catch self.state.buffer.pop();
+        }
     }
 }
