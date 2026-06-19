@@ -3,7 +3,7 @@ pkgver=0.1.0
 pkgrel=1
 pkgdesc="Hardware accelerated keyboard driven screen selection tool"
 arch=('x86_64')
-url="https://github.com/unixpariah/seto"
+url="https://github.com/Marcos875433/Seto"
 license=('GPL3')
 depends=(
 	'freetype2'
@@ -18,15 +18,10 @@ makedepends=(
 	'scdoc'
 	'wayland-protocols'
 )
-source=("$pkgname::git+https://github.com/unixpariah/seto.git")
+source=("$pkgname::git+https://github.com/Marcos875433/Seto.git")
 sha256sums=('SKIP')
 
-prepare() {
-	mkdir -p zig-global-cache/p/
-}
-
 build() {
-	export ZIG_GLOBAL_CACHE_DIR="${srcdir}/zig-global-cache"
 	cd "$srcdir/$pkgname"
 	zig build \
 		--cache-dir "$(pwd)/.zig-cache" \
@@ -43,9 +38,10 @@ package() {
 
 	# Install man pages
 	for f in doc/*.scd; do
-		page="doc/$(basename "$f" .scd)"
+		page="${f%.scd}"
+		section="${page##*.}"
 		scdoc <"$f" >"$page"
-		install -Dm644 "$page" "$pkgdir/usr/share/man/man1/$(basename "$page").1"
+		install -Dm644 "$page" "$pkgdir/usr/share/man/man${section}/$(basename "$page")"
 	done
 
 	# Install shell completions
